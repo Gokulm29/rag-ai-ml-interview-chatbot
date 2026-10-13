@@ -831,3 +831,36 @@ elif st.session_state.app_mode == "Mock Interview Mode":
                             f"Evaluation failed: "
                             f"{type(error).__name__}: {error}"
                         )
+
+st.markdown(
+    """
+    <style>
+    .copyright-footer {
+        text-align: center;
+        color: #8b95a5;
+        font-size: 12px;
+        padding: 15px 0 10px 0;
+        margin-top: 25px;
+        border-top: 1px solid #30343b;
+    }
+    .copyright-footer a {
+        color: #60a5fa;
+        text-decoration: none;
+    }
+    .copyright-footer a:hover {
+        text-decoration: underline;
+    }
+    </style>
+
+    <div class="copyright-footer">
+        © 2026 <strong>Gokul M.</strong> All rights reserved.
+        <br>
+        Built with Python, Streamlit &amp; Generative AI.
+        <br>
+        <a href="https://github.com/Gokulm29/rag-ai-ml-interview-chatbot"
+           target="_blank">View Source on GitHub</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
