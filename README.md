@@ -38,39 +38,8 @@ The application uses **Retrieval-Augmented Generation (RAG)** to retrieve releva
 
 ## 🏗️ System Architecture
 
-```text
-Interview Preparation PDF
-          |
-          v
-    PDF Text Extraction
-          |
-          v
-      Text Chunking
-          |
-          v
-   Sentence Embeddings
-          |
-          v
-     FAISS Vector Index
-          |
-          v
-   User Interview Question
-          |
-          v
-   Semantic Retrieval
-          |
-          v
- Retrieved Relevant Context
-          |
-          v
-       Groq LLM API
-          |
-          v
-   Contextual AI Response
-          |
-          v
-       Streamlit UI
-```
+<img width="920" height="1260" alt="System architecture@1x" src="https://github.com/user-attachments/assets/8075e18d-59bf-4bd8-9b6e-2c29d4d72fa8" />
+
 
 ## 🔄 How It Works
 
