@@ -2011,11 +2011,9 @@ elif st.session_state.app_mode == "Mock Interview Mode":
                         st.rerun()
 
                     except Exception as error:
-
                         st.error(
                             f"Evaluation failed: "
                             f"{type(error).__name__}: {error}"
-<<<<<<< HEAD
                         )
 
 st.markdown(
@@ -2049,7 +2047,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-=======
-                        )
->>>>>>> affeed9 (Update chatbot features and fix testing issues)
