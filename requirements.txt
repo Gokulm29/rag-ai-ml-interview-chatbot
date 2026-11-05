@@ -1,12 +1,9 @@
+```text
 streamlit
-<<<<<<< HEAD
 groq
 python-dotenv
-=======
->>>>>>> affeed9 (Update chatbot features and fix testing issues)
 pypdf
 sentence-transformers
 faiss-cpu
 numpy
-groq
-python-dotenv
+```
