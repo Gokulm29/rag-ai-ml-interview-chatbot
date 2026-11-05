@@ -9,7 +9,9 @@ from database import (
     get_all_conversations,
     get_conversation_messages,
     delete_conversation,
-    get_collections,
+    register_user,
+    authenticate_user,
+    get_or_create_google_user,
 )
 
 from rag_engine import RAGEngine, PDF_PATH
@@ -532,6 +534,190 @@ st.markdown(
         }}
     }}
 
+
+
+    /* AUTHENTICATION PAGE */
+    [class*="st-key-auth_page"] {{
+        max-width: 900px;
+        margin: 2.8rem auto 3rem auto;
+        padding: 0 1rem;
+    }}
+
+    [class*="st-key-auth_card"] {{
+        background: var(--surface) !important;
+        border: 1px solid var(--app-border) !important;
+        border-radius: 24px !important;
+        padding: 2rem 2.2rem 1.7rem 2.2rem !important;
+        box-shadow: 0 18px 55px rgba(45, 28, 80, .09) !important;
+    }}
+
+    .auth-hero {{
+        text-align: center;
+        margin: 0 auto 1.8rem auto;
+        max-width: 680px;
+    }}
+
+    .auth-logo {{
+        width: 62px;
+        height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.1rem auto;
+        border-radius: 20px;
+        color: #fff !important;
+        font-size: 30px;
+        background: linear-gradient(135deg, #7541D8 5%, #9654E8 52%, #21BDB6 100%);
+        box-shadow: 0 10px 25px rgba(117, 65, 216, .22);
+    }}
+
+    .auth-welcome {{
+        color: var(--app-text) !important;
+        font-size: clamp(2.1rem, 4.5vw, 3rem);
+        line-height: 1.08;
+        font-weight: 900;
+        letter-spacing: -.05em;
+        margin: 0 0 .7rem 0;
+    }}
+
+    .auth-eyebrow {{
+        color: var(--app-purple) !important;
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .15em;
+        text-transform: uppercase;
+        margin-bottom: .55rem;
+    }}
+
+    .auth-heading {{
+        color: var(--app-text) !important;
+        font-size: clamp(2rem, 4vw, 2.65rem);
+        line-height: 1.15;
+        font-weight: 800;
+        letter-spacing: -.045em;
+        margin: 0 0 .7rem 0;
+    }}
+
+    .auth-subtitle {{
+        color: var(--app-muted) !important;
+        font-size: 1rem;
+        line-height: 1.6;
+        margin: 0;
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stTabs"] [data-baseweb="tab-list"] {{
+        gap: 1.25rem;
+        border-bottom: 1px solid var(--app-border);
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stTabs"] button[role="tab"] {{
+        color: var(--app-muted) !important;
+        font-weight: 650;
+        padding: .7rem .2rem;
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stTabs"] button[aria-selected="true"] {{
+        color: var(--app-purple) !important;
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stTextInput"] label {{
+        color: var(--app-text) !important;
+        font-weight: 600;
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stTextInput"] input {{
+        min-height: 48px;
+        background: var(--app-input) !important;
+        color: var(--app-text) !important;
+        border: 1px solid var(--app-border) !important;
+        border-radius: 12px !important;
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stTextInput"] input:focus {{
+        border-color: var(--app-purple) !important;
+        box-shadow: 0 0 0 2px rgba(116, 57, 216, .12) !important;
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stFormSubmitButton"] button,
+    [class*="st-key-auth_card"] [data-testid="stBaseButton-primary"] {{
+        min-height: 48px;
+        border: 0 !important;
+        border-radius: 12px !important;
+        background: linear-gradient(105deg, #7541D8, #9654E8, #21BDB6) !important;
+        color: #fff !important;
+        font-weight: 750 !important;
+        box-shadow: 0 8px 18px rgba(117, 65, 216, .16);
+    }}
+
+    [class*="st-key-auth_card"] [data-testid="stFormSubmitButton"] button:hover,
+    [class*="st-key-auth_card"] [data-testid="stBaseButton-primary"]:hover {{
+        filter: brightness(1.04);
+        transform: translateY(-1px);
+    }}
+
+    .auth-divider {{
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        color: var(--app-muted) !important;
+        font-size: .82rem;
+        margin: 1.2rem 0;
+    }}
+
+    .auth-divider:before, .auth-divider:after {{
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--app-border);
+    }}
+
+    [class*="st-key-google_login_button"] [data-testid="stBaseButton-secondary"] {{
+        min-height: 47px;
+        border-radius: 12px !important;
+        border: 1px solid var(--app-border) !important;
+        background: var(--surface) !important;
+        color: var(--app-text) !important;
+        font-weight: 650 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 10px !important;
+    }}
+
+    [class*="st-key-google_login_button"] [data-testid="stBaseButton-secondary"]::before {{
+        content: "";
+        display: inline-block;
+        width: 21px;
+        height: 21px;
+        flex: 0 0 21px;
+        background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2048%2048%22%3E%3Cpath%20fill%3D%22%234285F4%22%20d%3D%22M43.6%2024.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4%209.4%200%200%201-4.1%206.2l6.5%205C41.2%2035.7%2043.6%2030.6%2043.6%2024.5z%22%2F%3E%3Cpath%20fill%3D%22%2334A853%22%20d%3D%22M24%2044c5.5%200%2010.1-1.8%2013.4-4.8l-6.5-5c-1.8%201.2-4.1%201.9-6.9%201.9-5.3%200-9.8-3.6-11.4-8.4l-6.7%205.2C9.3%2039.5%2016.1%2044%2024%2044z%22%2F%3E%3Cpath%20fill%3D%22%23FBBC05%22%20d%3D%22M12.6%2027.7a12%2012%200%200%201%200-7.4l-6.7-5.2a20%2020%200%200%200%200%2017.8z%22%2F%3E%3Cpath%20fill%3D%22%23EA4335%22%20d%3D%22M24%2012.1c3%200%205.7%201%207.8%203.1l5.8-5.8C34.1%206.2%2029.5%204%2024%204%2016.1%204%209.3%208.5%205.9%2015.1l6.7%205.2c1.6-4.8%206.1-8.2%2011.4-8.2z%22%2F%3E%3C%2Fsvg%3E") center / contain no-repeat;
+    }}
+
+    [class*="st-key-google_login_button"] [data-testid="stBaseButton-secondary"]:hover {{
+        border-color: var(--app-purple) !important;
+        background: var(--surface2) !important;
+    }}
+
+    .auth-footnote {{
+        text-align: center;
+        color: var(--app-muted) !important;
+        font-size: .78rem;
+        line-height: 1.5;
+        margin-top: 1.2rem;
+    }}
+
+    @media(max-width: 768px) {{
+        [class*="st-key-auth_page"] {{
+            margin: 1rem auto 2rem auto;
+            padding: 0 .35rem;
+        }}
+        [class*="st-key-auth_card"] {{
+            padding: 1.2rem !important;
+            border-radius: 18px !important;
+        }}
+        .auth-hero {{ margin-bottom: 1.2rem; }}
+    }}
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -552,6 +738,158 @@ except Exception as error:
     st.error(f"MongoDB connection failed: {error}")
     st.stop()
 
+
+# =========================================================
+# AUTHENTICATION
+# =========================================================
+
+if "auth_user" not in st.session_state:
+    st.session_state.auth_user = None
+
+# Streamlit completes Google OAuth by redirecting back to the app.
+# Do not gate this callback on session_state: the WebSocket session may be
+# recreated during the redirect, which otherwise sends users back to login.
+try:
+    if getattr(st.user, "is_logged_in", False):
+        claims = st.user.to_dict()
+        if claims.get("email_verified") is True:
+            google_user = get_or_create_google_user(
+                claims.get("sub"),
+                claims.get("email"),
+                claims.get("name"),
+            )
+            st.session_state.auth_user = google_user
+except Exception as error:
+    st.error(f"Google sign-in could not be completed: {error}")
+
+if not st.session_state.auth_user:
+    with st.container(key="auth_page"):
+        st.markdown(
+            """
+            <div class="auth-hero">
+                <div class="auth-logo">✦</div>
+                <div class="auth-welcome">Welcome back</div>
+                <div class="auth-eyebrow">Your personal AI ML interview preparation workspace</div>
+                <div class="auth-heading">Prepare smarter.<br>Interview with confidence.</div>
+                <p class="auth-subtitle">
+                    Sign in to continue your AI-powered interview practice,
+                    saved conversations and mock interview sessions.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        left_space, center, right_space = st.columns([0.7, 2.6, 0.7])
+        with center:
+            with st.container(key="auth_card", border=False):
+                login_tab, signup_tab = st.tabs(["Sign in", "Create account"])
+
+                with login_tab:
+                    with st.form("email_login_form"):
+                        login_email = st.text_input(
+                            "Email address", placeholder="you@example.com", key="login_email"
+                        )
+                        login_password = st.text_input(
+                            "Password", type="password", placeholder="Enter your password",
+                            key="login_password"
+                        )
+                        login_submitted = st.form_submit_button(
+                            "Sign in", type="primary", use_container_width=True
+                        )
+
+                    if login_submitted:
+                        try:
+                            user = authenticate_user(login_email, login_password)
+                            if user:
+                                st.session_state.auth_user = user
+                                st.rerun()
+                            else:
+                                st.error("Invalid email or password.")
+                        except Exception as error:
+                            st.error(f"Login failed: {error}")
+
+                with signup_tab:
+                    with st.form("email_signup_form"):
+                        signup_name = st.text_input(
+                            "Full name", placeholder="Your name", key="signup_name"
+                        )
+                        signup_email = st.text_input(
+                            "Email address", placeholder="you@example.com", key="signup_email"
+                        )
+                        signup_password = st.text_input(
+                            "Password (minimum 10 characters)", type="password",
+                            placeholder="Create a strong password", key="signup_password"
+                        )
+                        signup_confirm = st.text_input(
+                            "Confirm password", type="password",
+                            placeholder="Re-enter your password", key="signup_confirm"
+                        )
+                        signup_submitted = st.form_submit_button(
+                            "Create account", type="primary", use_container_width=True
+                        )
+
+                    if signup_submitted:
+                        if signup_password != signup_confirm:
+                            st.error("Passwords do not match.")
+                        else:
+                            try:
+                                new_user_id = register_user(
+                                    signup_name, signup_email, signup_password
+                                )
+                                st.session_state.auth_user = {
+                                    "user_id": new_user_id,
+                                    "name": signup_name.strip(),
+                                    "email": signup_email.strip().lower(),
+                                    "auth_provider": "password",
+                                }
+                                st.success("Account created successfully.")
+                                st.rerun()
+                            except Exception as error:
+                                st.error(f"Signup failed: {error}")
+
+                st.markdown('<div class="auth-divider">OR</div>', unsafe_allow_html=True)
+                google_login_clicked = st.button(
+                    "Continue with Google",
+                    use_container_width=True,
+                    key="google_login_button",
+                )
+                if google_login_clicked:
+                    try:
+                        auth_settings = st.secrets.get("auth", {})
+                        google_settings = auth_settings.get("google", {})
+                        required_auth_settings = ("redirect_uri", "cookie_secret")
+                        required_google_settings = (
+                            "client_id", "client_secret", "server_metadata_url"
+                        )
+                        missing_settings = [
+                            key for key in required_auth_settings
+                            if not auth_settings.get(key)
+                        ]
+                        missing_settings += [
+                            f"google.{key}" for key in required_google_settings
+                            if not google_settings.get(key)
+                        ]
+                        if missing_settings:
+                            st.error(
+                                "Google Login configuration is incomplete. Missing: "
+                                + ", ".join(missing_settings)
+                            )
+                        else:
+                            st.login("google")
+                    except Exception as error:
+                        st.error(f"Google Login Error: {type(error).__name__}: {error}")
+
+                st.markdown(
+                    '<div class="auth-footnote">🔒 Your conversations are private to your account.<br>'
+                    'Secure sign-in · Personal chat history · AI interview practice</div>',
+                    unsafe_allow_html=True,
+                )
+
+    st.stop()
+
+CURRENT_USER = st.session_state.auth_user
+CURRENT_USER_ID = CURRENT_USER["user_id"]
 
 # =========================================================
 # RAG ENGINE
@@ -608,28 +946,18 @@ def make_chat_title(question, max_words=6):
 
 
 def update_chat_title(chat_id, title):
-
-    conversations, _ = get_collections()
-
-    conversations.update_one(
-        {"_id": ObjectId(chat_id)},
-        {"$set": {"title": title}},
-    )
+    from database import update_chat_title as db_update_chat_title
+    db_update_chat_title(chat_id, title, user_id=CURRENT_USER_ID)
 
 
 def update_pin_status(chat_id, pinned):
-
-    conversations, _ = get_collections()
-
-    conversations.update_one(
-        {"_id": ObjectId(chat_id)},
-        {"$set": {"pinned": pinned}},
-    )
+    from database import update_pin_status as db_update_pin_status
+    db_update_pin_status(chat_id, pinned, user_id=CURRENT_USER_ID)
 
 
 def load_chat(chat_id):
 
-    stored_messages = get_conversation_messages(chat_id)
+    stored_messages = get_conversation_messages(chat_id, user_id=CURRENT_USER_ID)
 
     st.session_state.active_chat_id = chat_id
 
@@ -842,7 +1170,7 @@ def delete_chat_dialog():
 
             try:
 
-                delete_conversation(chat_id)
+                delete_conversation(chat_id, user_id=CURRENT_USER_ID)
 
                 if st.session_state.active_chat_id == chat_id:
 
@@ -872,23 +1200,22 @@ def delete_chat_dialog():
 
 
 # =========================================================
-# INITIAL CHAT LOAD
+# INITIAL CHAT LOAD - ALWAYS START WITH A NEW CHAT
 # =========================================================
 
-if not st.session_state.chat_initialized:
+# Do not automatically load the most recent MongoDB conversation.
+# Saved conversations remain available in the sidebar and open only
+# when the user explicitly selects one.
+if not st.session_state.get("fresh_chat_init_v2", False):
 
-    try:
+    st.session_state.messages = []
+    st.session_state.active_chat_id = None
+    st.session_state.open_chat_menu_id = None
 
-        conversations = get_all_conversations()
+    st.session_state.pop("pending_question", None)
 
-        if conversations:
-            load_chat(str(conversations[0]["_id"]))
-
-        st.session_state.chat_initialized = True
-
-    except Exception as error:
-
-        st.error(f"Could not load previous chats: {error}")
+    st.session_state.chat_initialized = True
+    st.session_state.fresh_chat_init_v2 = True
 
 
 # =========================================================
@@ -906,6 +1233,21 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
+
+    st.caption(f"Signed in as {CURRENT_USER.get('name', 'User')}")
+    st.caption(CURRENT_USER.get("email", ""))
+
+    if st.button("Logout", key="logout_button", use_container_width=True):
+        st.session_state.auth_user = None
+        for key in list(st.session_state.keys()):
+            if key not in {"auth_user"}:
+                del st.session_state[key]
+        try:
+            if getattr(st.user, "is_logged_in", False):
+                st.logout()
+        except Exception:
+            st.rerun()
+        st.rerun()
 
     # NEW CHAT
 
@@ -940,7 +1282,7 @@ with st.sidebar:
 
     try:
 
-        saved_conversations = get_all_conversations()
+        saved_conversations = get_all_conversations(user_id=CURRENT_USER_ID)
 
     except Exception as error:
 
@@ -1229,7 +1571,7 @@ with st.sidebar:
 
                 try:
 
-                    delete_conversation(current_chat_id)
+                    delete_conversation(current_chat_id, user_id=CURRENT_USER_ID)
 
                 except Exception as error:
 
@@ -1288,7 +1630,7 @@ if st.session_state.app_mode == "Chat Mode":
 
             try:
 
-                conversations = get_all_conversations()
+                conversations = get_all_conversations(user_id=CURRENT_USER_ID)
 
                 for conversation in conversations:
 
@@ -1474,7 +1816,7 @@ if st.session_state.app_mode == "Chat Mode":
                     title = make_chat_title(question)
 
                     st.session_state.active_chat_id = (
-                        create_conversation(title)
+                        create_conversation(title, user_id=CURRENT_USER_ID)
                     )
 
                 except Exception as error:
@@ -1502,6 +1844,7 @@ if st.session_state.app_mode == "Chat Mode":
                     chat_id,
                     "user",
                     question,
+                    user_id=CURRENT_USER_ID,
                 )
 
             except Exception as error:
@@ -1569,6 +1912,7 @@ if st.session_state.app_mode == "Chat Mode":
                             "assistant",
                             answer,
                             sources,
+                            user_id=CURRENT_USER_ID,
                         )
 
                     except Exception as error:
