@@ -18,6 +18,8 @@ from rag_engine import RAGEngine, PDF_PATH
 
 from llm import (
     generate_answer,
+    classify_question_domain,
+    OUT_OF_SCOPE_RESPONSE,
     rewrite_followup_question,
     generate_mock_question,
     evaluate_mock_answer,
@@ -31,7 +33,7 @@ from llm import (
 # =========================================================
 
 st.set_page_config(
-    page_title="Interview AI",
+    page_title="GokAI",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -165,29 +167,55 @@ st.markdown(
     /* BRAND */
 
     .brand {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
+        display: block;
+        width: 100%;
         margin: 8px 0 25px 0;
     }}
 
+    /* Hide the older standalone logo so only one brand mark remains. */
     .brand-icon {{
-        width: 36px;
-        height: 36px;
-        border-radius: 12px;
+        display: none !important;
+    }}
+
+    .brand-header {{
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white !important;
-        font-size: 21px;
-        background: linear-gradient(135deg, #8046E5, #20C6BD);
-        flex-shrink: 0;
+        gap: 12px;
+        width: max-content;
+        max-width: 100%;
+        box-sizing: border-box;
+        position: relative;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        margin: 8px 0 25px 0;
+    }}
+
+    .brand-logo {{
+        width: 46px;
+        height: 46px;
+        min-width: 46px;
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 25px;
+        background: linear-gradient(135deg, #8046E5 0%, #5B6EE1 48%, #20C6BD 100%);
+        color: #ffffff;
+        box-shadow: 0 5px 14px rgba(91, 110, 225, 0.22);
     }}
 
     .brand-title {{
-        font-size: 17px;
-        font-weight: 750;
-        color: var(--app-text) !important;
+        font-size: 34px;
+        line-height: 1.05;
+        font-weight: 950;
+        letter-spacing: -1.1px;
+        background: linear-gradient(100deg, #8046E5 0%, #5B6EE1 48%, #20C6BD 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent !important;
     }}
 
     .section-label {{
@@ -1227,8 +1255,10 @@ with st.sidebar:
     st.markdown(
         """
         <div class="brand">
-            <div class="brand-icon">✳</div>
-            <div class="brand-title">Interview AI</div>
+            <div class="brand-header">
+                <div class="brand-logo">✳</div>
+                <div class="brand-title">GokAI</div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -1624,7 +1654,7 @@ if st.session_state.app_mode == "Chat Mode":
 
     if st.session_state.messages:
 
-        current_title = "Interview AI"
+        current_title = "GokAI"
 
         if st.session_state.active_chat_id:
 
@@ -1641,7 +1671,7 @@ if st.session_state.app_mode == "Chat Mode":
 
                         current_title = conversation.get(
                             "title",
-                            "Interview AI",
+                            "GokAI",
                         )
 
                         break
@@ -1695,6 +1725,61 @@ elif st.session_state.app_mode == "Mock Interview Mode":
         """,
         unsafe_allow_html=True,
     )
+
+
+# =========================================================
+# FOLLOW-UP RETRIEVAL HELPERS
+# =========================================================
+
+def retrieve_followup_chunks(question, conversation_history):
+    """Search using rewritten and topic-preserving follow-up queries."""
+    rewritten_query = rewrite_followup_question(question, conversation_history)
+    previous_user_questions = [
+        str(item.get("content", "")).strip()
+        for item in (conversation_history or [])
+        if item.get("role") == "user" and str(item.get("content", "")).strip()
+    ]
+    fallback_query = question
+    if previous_user_questions:
+        recent_topic_context = " ".join(previous_user_questions[-3:])
+        fallback_query = (
+            f"Previous topic: {recent_topic_context}. "
+            f"Follow-up request: {question}"
+        )
+
+    queries = []
+    for query in (rewritten_query, fallback_query):
+        query = str(query or "").strip()
+        if query and query.lower() not in [q.lower() for q in queries]:
+            queries.append(query)
+
+    merged, seen = [], set()
+    for query in queries:
+        try:
+            results = engine.retrieve(query) or []
+        except Exception as error:
+            print(f"[RAG retrieval] {type(error).__name__}: {error}")
+            continue
+        for chunk in results:
+            if not isinstance(chunk, dict):
+                continue
+            text = str(chunk.get("text", "")).strip()
+            if not text:
+                continue
+            key = (str(chunk.get("source", "")), str(chunk.get("page", "")), text)
+            if key not in seen:
+                seen.add(key)
+                merged.append(chunk)
+
+    def score_value(chunk):
+        try:
+            return float(chunk.get("score", 0.0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    merged.sort(key=score_value, reverse=True)
+    print(f"[Follow-up retrieval] Queries: {queries}; unique chunks: {len(merged)}")
+    return merged
 
 
 # =========================================================
@@ -1783,7 +1868,7 @@ if st.session_state.app_mode == "Chat Mode":
         None,
     )
 
-    question = st.chat_input("Message Interview AI...")
+    question = st.chat_input("Message GokAI...")
 
     if pending_question:
         question = pending_question
@@ -1864,28 +1949,47 @@ if st.session_state.app_mode == "Chat Mode":
                 try:
 
                     with st.spinner(
-                        "Understanding your question and searching your notes..."
+                        "Checking the topic and preparing your answer..."
                     ):
 
-                        retrieval_question = rewrite_followup_question(
+                        # Classify before retrieval so unrelated questions never
+                        # receive answers from accidental PDF matches.
+                        domain = classify_question_domain(
                             question,
                             conversation_history,
                         )
 
-                        chunks = engine.retrieve(
-                            retrieval_question
-                        )
+                        if domain == "OUT_OF_SCOPE":
+                            chunks = []
+                            answer = OUT_OF_SCOPE_RESPONSE
 
-                        answer = clean_answer(
-                            generate_answer(
-                                question,
-                                chunks,
-                                conversation_history=conversation_history,
+                        elif domain == "IDENTITY":
+                            chunks = []
+                            answer = clean_answer(
+                                generate_answer(
+                                    question,
+                                    chunks,
+                                    conversation_history=conversation_history,
+                                )
                             )
-                        )
 
-                        # Repair malformed comparison tables before display and saving.
-                        answer = repair_markdown_tables(answer)
+                        else:
+                            chunks = retrieve_followup_chunks(
+                                question,
+                                conversation_history,
+                            )
+
+                            answer = clean_answer(
+                                generate_answer(
+                                    question,
+                                    chunks,
+                                    conversation_history=conversation_history,
+                                )
+                            )
+
+                            # Repair malformed comparison tables before display and saving.
+                            if "Sorry, I can only help with AI" not in answer:
+                                answer = repair_markdown_tables(answer)
 
                     render_answer(answer)
 
