@@ -14,10 +14,14 @@ The application uses **Retrieval-Augmented Generation (RAG)** to retrieve releva
 
 - 💬 **AI Chat Mode:** Ask technical questions and receive detailed explanations.
 - 🎯 **Mock Interview Mode:** Practice interview questions interactively.
+- 🔐 **User Authentication:** Secure login using email/password and Google OAuth.
+- 🔑 **Google Login:** Sign in easily using a Google account.
 - 📚 **PDF-Based Knowledge Retrieval:** Retrieves relevant information from the interview preparation document.
 - 🧠 **RAG Architecture:** Combines document retrieval with LLM-based answer generation.
 - 🔎 **Retrieved Sources:** Option to view relevant retrieved content.
 - 📝 **Suggested Questions:** Quickly explore common AI/ML interview topics.
+- 💾 **Chat History:** Stores user conversations and allows users to access previous chat history.
+- 👤 **User Management:** Stores user details securely in MongoDB Atlas.
 - 🌙 **Dark Theme Interface:** Clean, ChatGPT-style conversational interface.
 - ☁️ **Cloud Deployment:** Hosted using Streamlit Community Cloud.
 
@@ -32,6 +36,8 @@ The application uses **Retrieval-Augmented Generation (RAG)** to retrieve releva
 | Embeddings | Sentence Transformers |
 | Vector Search | FAISS |
 | Document Processing | PyPDF |
+| Database | MongoDB Atlas |
+| Authentication | Email/Password, Google OAuth |
 | Environment Configuration | python-dotenv |
 | Deployment | Streamlit Community Cloud |
 | Version Control | Git and GitHub |
@@ -40,35 +46,71 @@ The application uses **Retrieval-Augmented Generation (RAG)** to retrieve releva
 
 <img width="920" height="1260" alt="System architecture@1x" src="https://github.com/user-attachments/assets/8075e18d-59bf-4bd8-9b6e-2c29d4d72fa8" />
 
-
 ## 🔄 How It Works
 
-1. **Document ingestion:** Extracts text from the interview preparation PDF.
-2. **Text chunking:** Splits extracted text into smaller chunks for efficient retrieval.
-3. **Embedding generation:** Converts text chunks into vector representations using sentence embeddings.
-4. **Vector indexing:** Stores and searches embeddings using FAISS.
-5. **Question processing:** Accepts a user's technical question through the chat interface.
-6. **Context retrieval:** Retrieves relevant document chunks based on semantic similarity.
-7. **Answer generation:** Sends the question and retrieved context to the Groq-hosted LLM.
-8. **Response display:** Displays the generated answer in the Streamlit interface.
+1. **User Authentication:** Users log in using email/password or Google OAuth.
+2. **Document Ingestion:** Extracts text from the interview preparation PDF.
+3. **Text Chunking:** Splits extracted text into smaller chunks for efficient retrieval.
+4. **Embedding Generation:** Converts text chunks into vector representations using sentence embeddings.
+5. **Vector Indexing:** Stores and searches embeddings using FAISS.
+6. **Question Processing:** Accepts a user's technical question through the chat interface.
+7. **Context Retrieval:** Retrieves relevant document chunks based on semantic similarity.
+8. **Answer Generation:** Sends the question and retrieved context to the Groq-hosted LLM.
+9. **Chat History Storage:** Saves user conversations and chat history in MongoDB Atlas.
+10. **Response Display:** Displays the generated answer in the Streamlit interface.
+
+## 🗄️ Database Integration
+
+The application uses **MongoDB Atlas** as its cloud database.
+
+Key functionalities:
+
+- Stores registered user details.
+- Maintains individual user chat history.
+- Stores conversation data for future access.
+- Supports persistent chat history across sessions.
+
+## 🔐 Authentication
+
+The application provides two authentication methods:
+
+- **Email and Password Authentication:** Users can register and log in using their email address and password.
+- **Google OAuth Authentication:** Users can authenticate using their Google accounts.
+
+Authentication helps provide personalized access to the chatbot and user-specific conversation history.
 
 ## 📂 Project Structure
 
 ```text
+## 📂 Project Structure
 rag-ai-ml-interview-chatbot/
 │
-├── data/
-│   └── interview_notes.pdf
+├── .devcontainer/          # Development container configuration
 │
-├── app.py
-├── rag_engine.py
-├── llm.py
-├── requirements.txt
-├── test_app.py
-├── test_llm.py
-├── test_rag.py
-├── .gitignore
-└── README.md
+├── .streamlit/             # Streamlit configuration
+│
+├── data/                   # Interview preparation PDF
+│
+├── .gitignore              # Git ignored files
+│
+├── README.md               # Project documentation
+│
+├── app.py                  # Main Streamlit application
+├── app_backup.py           # Backup application file
+│
+├── database.py             # MongoDB Atlas integration
+├── database_backup.py      # Backup database file
+│
+├── llm.py                  # LLM integration using Groq
+│
+├── rag_engine.py           # RAG pipeline and FAISS retrieval
+│
+├── requirements.txt        # Project dependencies
+│
+├── test_app.py             # Application tests
+├── test_database.py        # Database tests
+├── test_llm.py             # LLM tests
+└── test_rag.py             # RAG functionality tests
 ```
 
 ## ⚙️ Installation and Setup
@@ -105,9 +147,14 @@ Create a `.env` file in the project root:
 ```env
 GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=openai/gpt-oss-120b
+MONGODB_URI=your_mongodb_connection_string
 ```
 
-Replace `your_groq_api_key` with your own API key. **Never commit your API key to GitHub.**
+Configure the required Google OAuth credentials according to your authentication implementation.
+
+Replace the placeholder values with your actual credentials.
+
+**Never commit API keys, database credentials, or OAuth secrets to GitHub.**
 
 ### 5. Run the application
 
@@ -122,15 +169,18 @@ The application will be available at the local URL displayed in your terminal, t
 For Streamlit Community Cloud:
 
 1. Connect your GitHub repository to Streamlit Community Cloud.
-2. Configure the application secrets in the Streamlit dashboard.
+2. Configure application secrets in the Streamlit dashboard.
 3. Add the required Groq API key and model configuration.
-4. Deploy the application and verify the chat and mock interview features.
+4. Configure the MongoDB Atlas connection string.
+5. Configure the required Google OAuth credentials.
+6. Deploy the application and verify login, Google authentication, chat, and mock interview features.
 
 Example secrets configuration:
 
 ```toml
 GROQ_API_KEY = "your_groq_api_key"
 GROQ_MODEL = "openai/gpt-oss-120b"
+MONGODB_URI = "your_mongodb_connection_string"
 ```
 
 Keep your actual credentials private.
@@ -152,6 +202,7 @@ pytest
 - Understanding Generative AI and RAG concepts.
 - Practicing technical interview questions.
 - Reviewing concepts using a document-based AI assistant.
+- Accessing personalized conversations and previous chat history.
 
 ## 🔮 Future Enhancements
 
@@ -159,7 +210,7 @@ pytest
 - Resume-based personalized interview questions.
 - Difficulty levels: Beginner, Intermediate, and Advanced.
 - Interview performance scoring and feedback.
-- Conversation history and progress tracking.
+- Interview progress tracking.
 - Voice-based mock interview practice.
 - More detailed source citations and answer evaluation.
 
