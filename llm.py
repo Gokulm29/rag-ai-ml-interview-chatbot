@@ -33,7 +33,7 @@ NO_ANSWER_RESPONSE = (
     "Please ask a question related to the AI ML interview preparation."
 )
 
-BOT_IDENTITY_RESPONSE = "My name is GokAI, developed by Gokul M."
+BOT_IDENTITY_RESPONSE = "My name is GokAI."
 OUT_OF_SCOPE_RESPONSE = (
     "Sorry, I can only help with AI, Machine Learning, Deep Learning, "
     "Data Science, Generative AI, programming, and related technical "
@@ -85,7 +85,7 @@ def build_context(chunks):
             f"Content:\n{text.strip()}"
         )
 
-    return "\\n\\n".join(parts)
+    return "\n\n".join(parts)
 
 
 def normalize_llm_markdown(text):
@@ -98,19 +98,19 @@ def normalize_llm_markdown(text):
 
     # Convert escaped line breaks only when they appear as literal output.
     # Preserve fenced code blocks because backslash sequences may be intentional there.
-    fence_parts = re.split(r"(```[\\s\\S]*?```)", text)
+    fence_parts = re.split(r"(```.*?```)", text, flags=re.DOTALL)
     for index in range(0, len(fence_parts), 2):
         part = fence_parts[index]
-        part = part.replace(r"\\r\\n", "\\n")
-        part = part.replace(r"\\n", "\\n")
+        part = part.replace(r"\r\n", "\n")
+        part = part.replace(r"\n", "\n")
         # Models sometimes escape math delimiters, preventing Markdown math rendering.
-        part = part.replace(r"\\$", "$")
+        part = part.replace(r"\$", "$")
         fence_parts[index] = part
 
     text = "".join(fence_parts)
 
     # Remove accidental whitespace before punctuation introduced by escaped formatting.
-    text = re.sub(r"[ \\t]+\\n", "\\n", text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
     return text.strip()
 
 
@@ -654,34 +654,66 @@ ANSWER QUALITY:
 # MARKDOWN COMPARISON TABLE VALIDATION AND REPAIR
 # ==================================================
 
-def _markdown_table_issues(answer):
-    """Detect Markdown tables with empty or inconsistent cells."""
+def _split_markdown_table_cells(line):
+    """Split a Markdown table row while respecting escaped pipe characters."""
 
-    lines = answer.splitlines()
+    line = line.strip()
+    if line.startswith("|"):
+        line = line[1:]
+    if line.endswith("|") and not line.endswith(r"\|"):
+        line = line[:-1]
+
+    cells = []
+    current = []
+    escaped = False
+
+    for character in line:
+        if character == "|" and not escaped:
+            cells.append("".join(current).strip())
+            current = []
+        else:
+            current.append(character)
+
+        if character == "\\" and not escaped:
+            escaped = True
+        else:
+            escaped = False
+
+    cells.append("".join(current).strip())
+    return cells
+
+
+def _markdown_table_issues(answer):
+    """Detect malformed Markdown tables outside fenced code blocks."""
+
+    if not isinstance(answer, str) or not answer.strip():
+        return []
+
+    # Exclude fenced code blocks so examples are not treated as rendered tables.
+    parts = re.split(r"(```.*?```)", answer, flags=re.DOTALL)
+    visible_lines = []
+    for part_index, part in enumerate(parts):
+        if part_index % 2 == 0:
+            visible_lines.extend(part.splitlines())
+        else:
+            visible_lines.extend([""] * len(part.splitlines()))
+
     issues = []
     index = 0
 
-    def split_cells(line):
-        line = line.strip()
-        if line.startswith("|"):
-            line = line[1:]
-        if line.endswith("|"):
-            line = line[:-1]
-        return [cell.strip() for cell in line.split("|")]
-
-    while index < len(lines) - 1:
-        header = lines[index].strip()
-        separator = lines[index + 1].strip()
+    while index < len(visible_lines) - 1:
+        header = visible_lines[index].strip()
+        separator = visible_lines[index + 1].strip()
 
         if "|" not in header or "|" not in separator:
             index += 1
             continue
 
-        separator_cells = split_cells(separator)
+        separator_cells = _split_markdown_table_cells(separator)
         is_separator = (
             len(separator_cells) >= 2
             and all(
-                re.fullmatch(r":?-{3,}:?", cell or "") is not None
+                re.fullmatch(r":?-{3,}:?", cell) is not None
                 for cell in separator_cells
             )
         )
@@ -690,7 +722,7 @@ def _markdown_table_issues(answer):
             index += 1
             continue
 
-        header_cells = split_cells(header)
+        header_cells = _split_markdown_table_cells(header)
         expected = len(separator_cells)
 
         if len(header_cells) != expected:
@@ -707,13 +739,23 @@ def _markdown_table_issues(answer):
         row_index = index + 2
         row_count = 0
 
-        while row_index < len(lines):
-            row = lines[row_index].strip()
+        while row_index < len(visible_lines):
+            row = visible_lines[row_index].strip()
 
-            if not row or "|" not in row:
+            if not row:
                 break
 
-            cells = split_cells(row)
+            # A line without pipes inside a table may be a wrapped/continued
+            # cell or accidental prose. Flag it instead of silently accepting
+            # a truncated table.
+            if "|" not in row:
+                issues.append(
+                    f"Table near line {index + 1}: possible wrapped or "
+                    f"malformed row at line {row_index + 1}."
+                )
+                break
+
+            cells = _split_markdown_table_cells(row)
             row_count += 1
 
             if len(cells) != expected:
@@ -733,6 +775,34 @@ def _markdown_table_issues(answer):
         index = max(row_index, index + 2)
 
     return issues
+
+
+def _markdown_table_count(answer):
+    """Count Markdown tables outside fenced code blocks."""
+
+    if not isinstance(answer, str) or not answer.strip():
+        return 0
+
+    parts = re.split(r"(```.*?```)", answer, flags=re.DOTALL)
+    lines = []
+    for part_index, part in enumerate(parts):
+        if part_index % 2 == 0:
+            lines.extend(part.splitlines())
+        else:
+            lines.extend([""] * len(part.splitlines()))
+
+    count = 0
+    for index in range(len(lines) - 1):
+        if "|" not in lines[index] or "|" not in lines[index + 1]:
+            continue
+        cells = _split_markdown_table_cells(lines[index + 1].strip())
+        if len(cells) >= 2 and all(
+            re.fullmatch(r":?-{3,}:?", cell) is not None
+            for cell in cells
+        ):
+            count += 1
+
+    return count
 
 
 def repair_markdown_tables(answer):
@@ -800,12 +870,15 @@ STRICT REQUIREMENTS:
         repaired = normalize_llm_markdown(repaired)
         repaired_issues = _markdown_table_issues(repaired)
 
-        if len(repaired_issues) < len(issues):
+        original_table_count = _markdown_table_count(answer)
+        repaired_table_count = _markdown_table_count(repaired)
+
+        if not repaired_issues and repaired_table_count >= original_table_count:
             return repaired.strip()
 
         print(
-            "[Table repair] Model response did not improve table structure. "
-            "Keeping original answer."
+            "[Table repair] Repaired answer still has table issues or lost "
+            "a table. Keeping original answer."
         )
         return answer
 
