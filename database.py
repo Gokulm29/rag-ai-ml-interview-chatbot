@@ -73,13 +73,69 @@ def connect_database():
         new_client.admin.command("ping")
         database = new_client[DATABASE_NAME]
 
-        database["users"].create_index("email", unique=True)
-        database["users"].create_index("google_sub", unique=True, sparse=True)
-        database["conversations"].create_index(
-            [("user_id", 1), ("updated_at", DESCENDING)]
+        def ensure_index(collection, keys, name, unique=False, sparse=False):
+            """
+            Reuse an existing index when its key pattern and required
+            uniqueness options already match. The MongoDB `hidden` option
+            does not affect whether the index is suitable for this purpose.
+            """
+            expected_keys = (
+                [(keys, 1)] if isinstance(keys, str) else list(keys)
+            )
+
+            for existing_name, info in collection.index_information().items():
+                existing_keys = list(info.get("key", []))
+
+                if existing_keys != expected_keys:
+                    continue
+
+                existing_unique = bool(info.get("unique", False))
+                existing_sparse = bool(info.get("sparse", False))
+
+                if (
+                    existing_unique == bool(unique)
+                    and existing_sparse == bool(sparse)
+                ):
+                    # Includes indexes hidden by an Atlas administrator.
+                    # Re-creating the same index would cause IndexOptionsConflict.
+                    return existing_name
+
+                raise RuntimeError(
+                    f"MongoDB index '{existing_name}' on "
+                    f"{collection.name} has the same key pattern but "
+                    "incompatible unique/sparse options. Review the existing "
+                    "index in MongoDB Atlas before changing it."
+                )
+
+            return collection.create_index(
+                expected_keys,
+                name=name,
+                unique=unique,
+                sparse=sparse,
+            )
+
+        ensure_index(
+            database["users"],
+            "email",
+            name="email_1",
+            unique=True,
         )
-        database["messages"].create_index(
-            [("chat_id", 1), ("created_at", 1)]
+        ensure_index(
+            database["users"],
+            "google_sub",
+            name="google_sub_1",
+            unique=True,
+            sparse=True,
+        )
+        ensure_index(
+            database["conversations"],
+            [("user_id", 1), ("updated_at", DESCENDING)],
+            name="user_id_1_updated_at_-1",
+        )
+        ensure_index(
+            database["messages"],
+            [("chat_id", 1), ("created_at", 1)],
+            name="chat_id_1_created_at_1",
         )
 
         client, db = new_client, database

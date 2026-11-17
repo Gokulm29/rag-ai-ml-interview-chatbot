@@ -85,7 +85,33 @@ def build_context(chunks):
             f"Content:\n{text.strip()}"
         )
 
-    return "\n\n".join(parts)
+    return "\\n\\n".join(parts)
+
+
+def normalize_llm_markdown(text):
+    """
+    Normalize common escaped formatting emitted by the LLM so Streamlit
+    can render Markdown, LaTeX, code examples, and line breaks correctly.
+    """
+    if not isinstance(text, str) or not text:
+        return text
+
+    # Convert escaped line breaks only when they appear as literal output.
+    # Preserve fenced code blocks because backslash sequences may be intentional there.
+    fence_parts = re.split(r"(```[\\s\\S]*?```)", text)
+    for index in range(0, len(fence_parts), 2):
+        part = fence_parts[index]
+        part = part.replace(r"\\r\\n", "\\n")
+        part = part.replace(r"\\n", "\\n")
+        # Models sometimes escape math delimiters, preventing Markdown math rendering.
+        part = part.replace(r"\\$", "$")
+        fence_parts[index] = part
+
+    text = "".join(fence_parts)
+
+    # Remove accidental whitespace before punctuation introduced by escaped formatting.
+    text = re.sub(r"[ \\t]+\\n", "\\n", text)
+    return text.strip()
 
 
 # ==================================================
@@ -608,7 +634,7 @@ ANSWER QUALITY:
         max_tokens=3000,
     )
 
-    answer = (answer or "").strip()
+    answer = normalize_llm_markdown(answer or "")
 
     refusal_markers = (
         "couldn't find this information",
@@ -771,6 +797,7 @@ STRICT REQUIREMENTS:
         if not isinstance(repaired, str) or not repaired.strip():
             return answer
 
+        repaired = normalize_llm_markdown(repaired)
         repaired_issues = _markdown_table_issues(repaired)
 
         if len(repaired_issues) < len(issues):
@@ -869,7 +896,7 @@ RULES:
         flags=re.IGNORECASE,
     )
 
-    answer = answer.strip().strip('"').strip("'")
+    answer = normalize_llm_markdown(answer).strip().strip('"').strip("'")
 
     if not answer:
         raise ValueError(
@@ -1091,7 +1118,7 @@ Do not invent scores or claim to measure skills not assessed.
 Use Markdown.
 """
 
-    return call_llm(
+    summary = call_llm(
         [
             {
                 "role": "system",
@@ -1109,6 +1136,7 @@ Use Markdown.
         temperature=0.2,
         max_tokens=2000,
     )
+    return normalize_llm_markdown(summary)
 
 
 # ==================================================

@@ -943,6 +943,84 @@ except Exception as error:
 # CHAT HELPER FUNCTIONS
 # =========================================================
 
+def normalize_small_talk(text):
+    """Normalize short greetings/thanks for exact-match handling."""
+    text = str(text or "").lower().strip()
+    text = re.sub(r"[^a-z0-9\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def get_small_talk_response(question):
+    """Handle standalone greetings/thanks, including casual forms like 'hii bro'.
+
+    Only short standalone messages are matched. A real question such as
+    'Hi, explain CNN' continues through the normal AI/ML routing.
+    """
+    normalized = normalize_small_talk(question)
+    if not normalized:
+        return None
+
+    # Common friendly suffixes used in casual greetings. Remove only trailing
+    # forms, so words inside a real question are never silently discarded.
+    friendly_suffixes = {
+        "bro", "da", "machan", "dude", "buddy", "gokai", "friend"
+    }
+    words = normalized.split()
+    while words and words[-1] in friendly_suffixes:
+        words.pop()
+    core = " ".join(words)
+
+    greeting_patterns = {
+        "hi", "hii", "hiii", "hiiii", "hello", "helo", "helloo",
+        "hey", "heyy", "heyyy", "hai", "h a i",
+        "good morning", "good afternoon", "good evening", "good night",
+    }
+    thanks_patterns = {
+        "thanks", "thank", "thank you", "thankyou", "thanks a lot",
+        "thank you so much", "thanks so much", "thank you very much",
+        "thx", "ty",
+    }
+
+    if core == "good morning":
+        return (
+            "Good morning! ☀️ Wishing you a bright and productive day. "
+            "What AI/ML topic shall we explore today?"
+        )
+
+    if core == "good afternoon":
+        return (
+            "Good afternoon! 😊 Hope your day is going well. "
+            "What AI/ML topic can I help you explore today?"
+        )
+
+    if core == "good evening":
+        return (
+            "Good evening! 🌆 Hope you had a productive day. "
+            "Ready to learn something new in AI/ML?"
+        )
+
+    if core == "good night":
+        return (
+            "Good night! 🌙 Hope you had a wonderful day. Rest well and wake up "
+            "refreshed for a new day. Sweet dreams! ✨"
+        )
+
+    if core in greeting_patterns:
+        return (
+            "Hey! 👋 Hello! I'm GokAI. "
+            "How can I help you with your AI/ML interview preparation today?"
+        )
+
+    if core in thanks_patterns:
+        return (
+            "You're most welcome! 😊 Happy to help you. "
+            "Feel free to ask me anything about AI/ML interview preparation. "
+            "All the best! 🚀"
+        )
+
+    return None
+
+
 def make_chat_title(question, max_words=6):
 
     title = re.sub(r"\s+", " ", str(question)).strip()
@@ -1004,42 +1082,49 @@ def load_chat(chat_id):
 
 
 def clean_answer(answer):
+    """Normalize LLM Markdown/LaTeX without changing fenced code examples."""
 
     if not isinstance(answer, str):
         return str(answer)
 
-    answer = re.sub(
-        r"<br\s*/?>",
-        "\n",
-        answer,
-        flags=re.IGNORECASE,
-    )
+    answer = answer.replace("\r\n", "\n").replace("\r", "\n")
 
-    answer = re.sub(
-        r"</?(?:p|div)\b[^>]*>",
-        "\n",
-        answer,
-        flags=re.IGNORECASE,
-    )
+    # Keep fenced code examples intact while normalizing surrounding prose.
+    parts = re.split(r"(```[\s\S]*?```)", answer)
 
-    answer = re.sub(
-        r"\\\[(.*?)\\\]",
-        lambda m: "$$\n" + m.group(1).strip() + "\n$$",
-        answer,
-        flags=re.DOTALL,
-    )
+    for index in range(0, len(parts), 2):
+        text = parts[index]
 
-    answer = re.sub(
-        r"\\\((.*?)\\\)",
-        lambda m: "$" + m.group(1).strip() + "$",
-        answer,
-        flags=re.DOTALL,
-    )
+        text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r"</?(?:p|div)\b[^>]*>",
+            "\n",
+            text,
+            flags=re.IGNORECASE,
+        )
 
-    answer = answer.replace("\r\n", "\n")
-    answer = re.sub(r"\n{3,}", "\n\n", answer)
+        # Handle literal escaped newlines and escaped math delimiters
+        # occasionally returned by the language model.
+        text = text.replace(r"\n", "\n")
+        text = text.replace(r"\$", "$")
 
-    return answer.strip()
+        text = re.sub(
+            r"\\\[(.*?)\\\]",
+            lambda m: "$$\n" + m.group(1).strip() + "\n$$",
+            text,
+            flags=re.DOTALL,
+        )
+        text = re.sub(
+            r"\\\((.*?)\\\)",
+            lambda m: "$" + m.group(1).strip() + "$",
+            text,
+            flags=re.DOTALL,
+        )
+
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        parts[index] = text
+
+    return "".join(parts).strip()
 
 
 def render_answer(answer):
@@ -1952,44 +2037,55 @@ if st.session_state.app_mode == "Chat Mode":
                         "Checking the topic and preparing your answer..."
                     ):
 
-                        # Classify before retrieval so unrelated questions never
-                        # receive answers from accidental PDF matches.
-                        domain = classify_question_domain(
-                            question,
-                            conversation_history,
-                        )
+                        # Handle standalone greetings and thank-you messages
+                        # without calling the LLM or retrieving irrelevant chunks.
+                        small_talk_answer = get_small_talk_response(question)
 
-                        if domain == "OUT_OF_SCOPE":
+                        if small_talk_answer is not None:
                             chunks = []
-                            answer = OUT_OF_SCOPE_RESPONSE
-
-                        elif domain == "IDENTITY":
-                            chunks = []
-                            answer = clean_answer(
-                                generate_answer(
-                                    question,
-                                    chunks,
-                                    conversation_history=conversation_history,
-                                )
-                            )
+                            answer = small_talk_answer
 
                         else:
-                            chunks = retrieve_followup_chunks(
+                            # Classify before retrieval so unrelated questions never
+                            # receive answers from accidental PDF matches. Messages
+                            # containing a real question (e.g. "Hi, explain CNN")
+                            # continue through the normal AI/ML routing.
+                            domain = classify_question_domain(
                                 question,
                                 conversation_history,
                             )
 
-                            answer = clean_answer(
-                                generate_answer(
-                                    question,
-                                    chunks,
-                                    conversation_history=conversation_history,
-                                )
-                            )
+                            if domain == "OUT_OF_SCOPE":
+                                chunks = []
+                                answer = OUT_OF_SCOPE_RESPONSE
 
-                            # Repair malformed comparison tables before display and saving.
-                            if "Sorry, I can only help with AI" not in answer:
-                                answer = repair_markdown_tables(answer)
+                            elif domain == "IDENTITY":
+                                chunks = []
+                                answer = clean_answer(
+                                    generate_answer(
+                                        question,
+                                        chunks,
+                                        conversation_history=conversation_history,
+                                    )
+                                )
+
+                            else:
+                                chunks = retrieve_followup_chunks(
+                                    question,
+                                    conversation_history,
+                                )
+
+                                answer = clean_answer(
+                                    generate_answer(
+                                        question,
+                                        chunks,
+                                        conversation_history=conversation_history,
+                                    )
+                                )
+
+                                # Repair malformed comparison tables before display and saving.
+                                if "Sorry, I can only help with AI" not in answer:
+                                    answer = repair_markdown_tables(answer)
 
                     render_answer(answer)
 
